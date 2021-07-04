@@ -11,7 +11,7 @@ struct entry0 {
 };
 
 typedef struct entry0 entry;
-
+int count;
 /* Command handlers */
 void add(char *, char *);
 int search(FILE *,char *);
@@ -62,7 +62,24 @@ int main(int argc, char *argv[]) {
     fclose(fp);
     exit(0);
   } else if (strcmp(argv[1], "search") == 0) {  /* Handle search */
-    printf("NOT IMPLEMENTED!\n"); /* TBD  */
+    //printf("NOT IMPLEMENTED!\n"); /* TBD  */
+        if (argc != 3) {
+            print_usage("Improper arguments for search", argv[0]);
+            exit(1);
+        }
+        char *name = argv[2];
+        FILE *fp = open_db_file();
+        int value = search(fp, name);
+        if(value==-1)
+        {
+                printf("no match\n");
+                fclose(fp);
+                exit(1);
+        }else{
+                printf("%i\n", value);
+        }
+        fclose(fp);
+        exit(0);
   } else if (strcmp(argv[1], "delete") == 0) {  /* Handle delete */
     if (argc != 3) {
       print_usage("Improper arguments for delete", argv[0]);
@@ -93,8 +110,12 @@ FILE *open_db_file() {
 }
   
 void free_entries(entry *p) {
-  /* TBD */
-  printf("Memory is not being freed. This needs to be fixed!\n");  
+  free(p);
+  while(p->next != NULL)
+  {
+    free(p->next);
+    p = p->next;
+  } 
 }
 
 void print_usage(char *message, char *progname) {
@@ -131,20 +152,17 @@ entry *load_entries(FILE *fp) {
   entry *tmp = NULL;
   /* Description of %20[^,\n]
      % is the start of the specifier (like %s, %i etc.)
-
      20 is the maximum number of characters that this will take. We
         know that names and phone numbers will be 20 bytes maximum so
         we limit it to that. %20s will read in 20 character strings
         (including the , to separate the name and phone number. That's
         why we use
-
     [^,\n] Square brackets are used to indicate a set of allowed
            characters [abc] means only a, b, or c. With the ^, it's
            used to specify a set of disallowed characters. So [^abc]
            means any character *except* a, b, or c. [^,] means any
            character except a , [^,\n] means any character except a
            comma(,) or a newline(\n).
-
     %20[^,\n] will match a string of characters with a maximum length
      of 20 characters that doesn't have a comma(,) or a newline(\n).
   */        
@@ -175,13 +193,37 @@ void add(char *name, char *phone) {
   fclose(fp);
 }
 
+int search(FILE *fp, char *name) {
+    char person[20];
+    char phone_num[20];
+    int numerical;
+    
+    while((fscanf(fp, "%[^,],%[^\n]\n", person, phone_num) != EOF))
+    {
+        if(strcmp(person, name)==0)
+        {
+           numerical = atoi(phone_num);
+           return numerical;
+        }
+    }
+    return -1; 
+}
+
+
 void list(FILE *db_file) {
   entry *p = load_entries(db_file);
   entry *base = p;
+  count = 0;
   while (p!=NULL) {
     printf("%-20s : %10s\n", p->name, p->phone);
+    count++;
     p=p->next;
   }
+  if(count!=0){
+    printf("Total entries :  %i\n", count);
+    }else{
+        exit(1);
+    }
   /* TBD print total count */
   free_entries(base);
 }
@@ -195,20 +237,26 @@ int delete(FILE *db_file, char *name) {
   int deleted = 0;
   while (p!=NULL) {
     if (strcmp(p->name, name) == 0) {
-      /* Matching node found. Delete it from the linked list.
-         Deletion from a linked list like this
-   
-             p0 -> p1 -> p2
-         
-         means we have to make p0->next point directly to p2. The p1
-         "node" is removed and free'd.
-         
-         If the node to be deleted is p0, it's a special case. 
-      */
-
-      /* TBD */
+    
+        if(prev==NULL)  // this case if the first item has to be deleted
+        {
+            del = base;
+            base = base->next;
+            free(del);
+            deleted = 1;
+        }
+        else 
+        {
+            del = p;
+            prev->next = del->next;
+            free(del);
+            deleted = 1; 
+        }
+     }
+     
+     prev = p;
+     p = p->next;
     }
-  }
   write_all_entries(base);
   free_entries(base);
   return deleted;
